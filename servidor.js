@@ -20,7 +20,9 @@ import { notFound, errorHandler } from "./fuentes/intermedios/manejoErrores.js";
 
 const app = express();
 
-/* 1. Conexión a la BD */
+/* -------------------------------------------
+   1. Conexión a la BD
+------------------------------------------- */
 (async () => {
   try {
     await conectarDB();
@@ -31,28 +33,41 @@ const app = express();
   }
 })();
 
-/* 2. CORS */
+/* -------------------------------------------
+   2. CORS (CORRECCIÓN COMPLETA)
+------------------------------------------- */
 const whitelist = config.CORS_ORIGIN ? config.CORS_ORIGIN.split(",") : [];
 
 const corsOptions = {
   origin: (origin, callback) => {
     const permitido =
-      !origin || whitelist.includes(origin) || process.env.NODE_ENV !== "production";
+      !origin ||
+      whitelist.includes(origin) ||
+      process.env.NODE_ENV !== "production";
 
-    permitido ? callback(null, true) : callback(new Error("Origen no permitido por CORS"));
+    permitido
+      ? callback(null, true)
+      : callback(new Error("Origen no permitido por CORS: " + origin));
   },
   credentials: true,
-  methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
+  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization", "Accept"],
 };
 
+// 🔥 FIX para preflight OPTIONS de Render
 app.use(cors(corsOptions));
+app.options("*", cors(corsOptions));
+
 app.use(express.json({ limit: "10mb" }));
 
-/* 3. Archivos estáticos */
+/* -------------------------------------------
+   3. Archivos estáticos
+------------------------------------------- */
 app.use("/uploads", express.static(UPLOADS_DIR));
 
-/* 4. Swagger */
+/* -------------------------------------------
+   4. Swagger
+------------------------------------------- */
 let swaggerSpec = {};
 
 try {
@@ -63,7 +78,9 @@ try {
 
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
-/* 5. Rutas */
+/* -------------------------------------------
+   5. Rutas
+------------------------------------------- */
 app.use("/api/autenticacion", autenticacionRutas);
 app.use("/api/aves", aveRutas);
 app.use("/api/familias", familiaRutas);
@@ -78,16 +95,22 @@ if (config.CHATBOT_ENABLED) {
   logger.warn("⚠ Chatbot deshabilitado");
 }
 
-/* 6. Ruta base */
+/* -------------------------------------------
+   6. Ruta base
+------------------------------------------- */
 app.get("/", (req, res) => {
   res.send("API de EcoAlas - Bienvenido!");
 });
 
-/* 7. Manejo de errores */
+/* -------------------------------------------
+   7. Manejo de errores
+------------------------------------------- */
 app.use(notFound);
 app.use(errorHandler);
 
-/* 8. Servidor: AHORA COMPATIBLE CON RENDER */
+/* -------------------------------------------
+   8. Servidor (Render-friendly)
+------------------------------------------- */
 const PORT = process.env.PORT || config.PORT || 3000;
 
 app.listen(PORT, async () => {

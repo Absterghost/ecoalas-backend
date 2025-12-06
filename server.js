@@ -5,6 +5,7 @@ import mongoose from "mongoose";
 import cors from "cors";
 import dotenv from "dotenv";
 
+
 // Importar rutas
 import userRoutes from "./fuentes/rutas/usuario.js";
 
@@ -15,6 +16,15 @@ import chatbot from "./chatbot.js";
 dotenv.config();
 
 const app = express();
+
+app.use(cors({
+  origin: [
+    "https://aviturismo-manizales.netlify.app",
+    "http://localhost:5173"
+  ],
+  methods: ["GET", "POST", "PUT", "DELETE"],
+  credentials: true
+}));
 
 // ====== Middleware ======
 app.use(express.json());

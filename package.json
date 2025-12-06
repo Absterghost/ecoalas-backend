@@ -4,14 +4,19 @@
   "type": "module",
   "description": "Backend para EcoAlas - Sistema de consulta de aves de Caldas",
   "main": "fuentes/servidor.js",
+
   "scripts": {
-    "start": "node fuentes/servidor.js",
+    "start:server": "node fuentes/servidor.js",
+    "start:chatbot": "node fuentes/chatbot.js",
+
     "dev": "node --watch fuentes/servidor.js",
     "procesar": "node fuentes/servicios/procesadorDocumentos.js",
     "estado": "node fuentes/servicios/procesadorDocumentos.js --estado",
     "debug": "node --inspect fuentes/servidor.js",
+
     "test": "echo \"No tests specified\" && exit 0"
   },
+
   "dependencies": {
     "bcrypt": "^5.1.1",
     "cors": "^2.8.5",
@@ -27,12 +32,14 @@
     "swagger-ui-express": "^5.0.0",
     "winston": "^3.18.3"
   },
+
   "devDependencies": {
     "@shelf/jest-mongodb": "^4.3.2",
     "jest": "^29.7.0",
     "mongodb-memory-server": "^9.1.6",
     "supertest": "^6.3.4"
   },
+
   "keywords": [
     "aves",
     "caldas",
@@ -43,8 +50,10 @@
     "ollama",
     "gemma3"
   ],
+
   "author": "EcoAlas",
   "license": "MIT",
+
   "engines": {
     "node": ">=18.0.0"
   }

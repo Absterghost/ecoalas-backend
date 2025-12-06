@@ -58,7 +58,7 @@ async function obtenerRespuestaIA(pregunta) {
           { role: "system", content: "Eres un experto en aves  y siempre respondes en español." },
           { role: "user", content: pregunta }
         ],
-        max_tokens: 1500,
+        max_tokens: 500,
         temperature: 0.2
       })
     });

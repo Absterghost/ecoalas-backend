@@ -1,0 +1,12 @@
+{
+  "metadata": {
+    "nombreOriginal": "auto_test_doc.txt",
+    "fechaProcesamiento": "2025-12-05T22:46:36.190Z",
+    "totalChunks": 1,
+    "totalCaracteres": 178,
+    "metodo": "directo"
+  },
+  "chunks": [
+    "Prueba automática de indexado.\nEsta es una referencia al colibrí esmeralda y otras aves de prueba.\nSe debe generar un chunk con este texto para que el modo estricto lo encuentre."
+  ]
+}

@@ -1,0 +1,3 @@
+Prueba automática de indexado.
+Esta es una referencia al colibrí esmeralda y otras aves de prueba.
+Se debe generar un chunk con este texto para que el modo estricto lo encuentre.

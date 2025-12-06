@@ -1,0 +1,16 @@
+# Dependencias
+node_modules/
+
+# Archivos de entorno - ¡No subir contraseñas!
+.env
+
+# Logs
+logs/
+uploads/
+dist/
+
+# Archivos de sistema operativo
+.DS_Store
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*

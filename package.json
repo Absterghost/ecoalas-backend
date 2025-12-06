@@ -3,16 +3,16 @@
   "version": "1.0.0",
   "type": "module",
   "description": "Backend para EcoAlas - Sistema de consulta de aves de Caldas",
-  "main": "fuentes/servidor.js",
+  "main": "server.js",
 
   "scripts": {
-    "start:server": "node fuentes/servidor.js",
-    "start:chatbot": "node fuentes/chatbot.js",
+    "start:server": "node server.js",
+    "start:chatbot": "node chatbot.js",
 
-    "dev": "node --watch fuentes/servidor.js",
+    "dev": "node --watch server.js",
     "procesar": "node fuentes/servicios/procesadorDocumentos.js",
     "estado": "node fuentes/servicios/procesadorDocumentos.js --estado",
-    "debug": "node --inspect fuentes/servidor.js",
+    "debug": "node --inspect server.js",
 
     "test": "echo \"No tests specified\" && exit 0"
   },

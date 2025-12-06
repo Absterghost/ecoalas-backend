@@ -6,7 +6,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 
 // Importar rutas
-import userRoutes from "./fuentes/routes/usuarios.js";
+import userRoutes from "./fuentes/rutas/usuario.js";
 
 // Importar chatbot (como módulo, NO servidor)
 import chatbot from "./chatbot.js";

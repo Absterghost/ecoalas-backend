@@ -13,7 +13,7 @@ dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const PORT = 5500; // O el que tú quieras
+const PORT = 5500;
 const CHATBOT_ENABLED = process.env.CHATBOT_ENABLED === "true";
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
@@ -23,15 +23,28 @@ const CHUNKS_DIR = path.join(__dirname, "documentos_chunks");
 
 const app = express();
 app.use(express.json());
+
+// ✅ CORS COMPLETO Y CORRECTO
 app.use(
   cors({
-    origin: (process.env.CORS_ORIGIN || "").split(","),
+    origin: [
+      "http://localhost:3000",
+      "http://localhost:5173",
+      "http://127.0.0.1:5173",
+      "https://aviturismo-manizales.netlify.app"
+    ],
     methods: ["GET", "POST"],
-    credentials: true,
+    allowedHeaders: ["Content-Type"],
   })
 );
 
-// CARGAR CHUNKS
+// Necesario para Chrome (preflight OPTIONS)
+app.options("*", cors());
+
+// =======================================================
+// CARGA DE CHUNKS
+// =======================================================
+
 let documentosChunks = {};
 
 if (fs.existsSync(CHUNKS_DIR)) {
@@ -51,25 +64,38 @@ if (fs.existsSync(CHUNKS_DIR)) {
   console.log("⚠️ No existe la carpeta documentos_chunks.");
 }
 
-// BUSCADOR
-function buscarEnChunks(query) {
-  const resultados = [];
+// =======================================================
+// BUSCADOR – CORREGIDO Y FUNCIONAL
+// =======================================================
 
-  for (const [archivo, listaChunks] of Object.entries(documentosChunks)) {
-    listaChunks.forEach((chunk, i) => {
-      if (chunk.toLowerCase().includes(query.toLowerCase())) {
+function buscarEnChunks(mensajeUsuario) {
+  let resultados = [];
+
+  for (const archivo in documentosChunks) {
+    const listaChunks = documentosChunks[archivo];
+
+    if (!Array.isArray(listaChunks)) continue;
+
+    listaChunks.forEach((chunk, index) => {
+      if (typeof chunk !== "string") return;
+
+      if (chunk.toLowerCase().includes(mensajeUsuario.toLowerCase())) {
         resultados.push({
           archivo,
-          chunkIndex: i + 1,
+          chunkIndex: index,
           texto: chunk,
         });
       }
     });
   }
+
   return resultados;
 }
 
-// IA GROQ
+// =======================================================
+// INTEGRACIÓN IA GROQ
+// =======================================================
+
 async function obtenerRespuestaIA(pregunta) {
   try {
     const completion = await groq.chat.completions.create({
@@ -78,12 +104,12 @@ async function obtenerRespuestaIA(pregunta) {
         {
           role: "system",
           content:
-            "Eres un experto en aves y aviturismo. Responde SIEMPRE en español, de forma clara.",
+            "Eres un experto en aves y aviturismo. Responde SIEMPRE en español, de manera clara y educativa.",
         },
         { role: "user", content: pregunta },
       ],
       temperature: 0.2,
-      max_tokens: 500,
+      max_tokens: 200,
     });
 
     return completion.choices[0].message.content;
@@ -93,7 +119,10 @@ async function obtenerRespuestaIA(pregunta) {
   }
 }
 
-// ENDPOINT /chat
+// =======================================================
+// ENDPOINT PRINCIPAL /chat
+// =======================================================
+
 app.post("/chat", async (req, res) => {
   const { message } = req.body;
 
@@ -103,6 +132,7 @@ app.post("/chat", async (req, res) => {
 
   let reply = "";
 
+  // Buscar en documentos
   const encontrados = buscarEnChunks(message);
 
   if (encontrados.length > 0) {
@@ -112,9 +142,10 @@ app.post("/chat", async (req, res) => {
     });
   }
 
+  // Agregar IA
   if (CHATBOT_ENABLED) {
     const ia = await obtenerRespuestaIA(message);
-    reply = `🤖 **Respuesta de la IA:**\n${ia}\n\n` + (reply || "");
+    reply = `🤖 **Respuesta de la IA:**\n${ia}\n\n${reply}`;
   }
 
   if (!CHATBOT_ENABLED && encontrados.length === 0) {
@@ -124,7 +155,10 @@ app.post("/chat", async (req, res) => {
   res.json({ reply });
 });
 
-// ACTIVADOR DE IA
+// =======================================================
+// ACTIVADOR IA
+// =======================================================
+
 app.post("/toggleIA", (req, res) => {
   process.env.CHATBOT_ENABLED =
     process.env.CHATBOT_ENABLED === "true" ? "false" : "true";
@@ -136,5 +170,15 @@ app.post("/toggleIA", (req, res) => {
         : "IA desactivada",
   });
 });
+
+// =======================================================
+// INICIAR SERVIDOR
+// =======================================================
+
+if (process.argv[1].includes("chatbot.js")) {
+  app.listen(PORT, () => {
+    console.log(`🤖 Servidor de chatbot corriendo en http://localhost:${PORT}`);
+  });
+}
 
 export default app;

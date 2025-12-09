@@ -1,8 +1,5 @@
-// backend/server.js
-
 import express from "express";
 import mongoose from "mongoose";
-import cors from "cors";
 import dotenv from "dotenv";
 import path from "path";
 import fs from "fs";
@@ -23,32 +20,47 @@ app.use(express.json());
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const CHATBOT_ENABLED = process.env.CHATBOT_ENABLED === "true";
+let CHATBOT_ENABLED = process.env.CHATBOT_ENABLED === "true";
 const PORT = process.env.PORT || 3000;
 
 // =======================================
-// CORS CONFIGURACIÓN DEFINITIVA (RENDER ✅)
+// CORS DEFINITIVO (RENDER + LOCAL ✅)
 // =======================================
-app.use(cors({
-  origin: [
-    "http://localhost:5173",
-    "https://ecoalas-frontend.onrender.com"
-  ],
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"],
-  credentials: true
-}));
+const allowedOrigins = [
+  "http://localhost:5173",
+  "https://ecoalas-frontend.onrender.com"
+];
 
-// IMPORTANTE: habilitar preflight en todas las rutas
-app.options("*", cors());
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+
+  if (allowedOrigins.includes(origin)) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+  }
+
+  res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
+  res.setHeader(
+    "Access-Control-Allow-Headers",
+    "Content-Type, Authorization"
+  );
+  res.setHeader("Access-Control-Allow-Credentials", "true");
+
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(200);
+  }
+
+  next();
+});
 
 // =======================================
 // CONEXIÓN A MONGO
 // =======================================
 mongoose
-  .connect(process.env.MONGO_URI, { dbName: "ecoalas" })
-  .then(() => console.log("📌 Conexión a MongoDB exitosa"))
-  .catch((err) => console.error("❌ Error conectando a MongoDB:", err));
+  .connect(process.env.MONGO_URI, {
+    dbName: "ecoalas"
+  })
+  .then(() => console.log("✅ Conectado a MongoDB"))
+  .catch((err) => console.error("❌ Error MongoDB:", err));
 
 // =======================================
 // RUTAS
@@ -56,13 +68,13 @@ mongoose
 app.use("/api/usuarios", userRoutes);
 
 // =======================================
-// CHATBOT CONFIG
+// GROQ CONFIG
 // =======================================
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 const GROQ_MODEL = process.env.GROQ_MODEL || "llama3-8b-8192";
 
 // =======================================
-// CARGA DE DOCUMENTOS
+// CARGAR DOCUMENTOS
 // =======================================
 const CHUNKS_DIR = path.join(__dirname, "documentos_chunks");
 let documentosChunks = {};
@@ -78,34 +90,33 @@ if (fs.existsSync(CHUNKS_DIR)) {
         fs.readFileSync(path.join(CHUNKS_DIR, archivo), "utf8")
       );
     } catch (err) {
-      console.error("❌ Error leyendo chunk:", archivo, err.message);
+      console.error(`❌ Error leyendo ${archivo}:`, err.message);
     }
   }
 
-  console.log(`📚 Chunks cargados: ${Object.keys(documentosChunks).length}`);
+  console.log(
+    `📚 Chunks cargados: ${Object.keys(documentosChunks).length}`
+  );
 } else {
-  console.log("⚠️ No existe la carpeta documentos_chunks.");
+  console.warn("⚠️ No existe la carpeta documentos_chunks");
 }
 
 // =======================================
 // BUSCADOR DE TEXTO
 // =======================================
-function buscarEnChunks(mensajeUsuario) {
-  let resultados = [];
+function buscarEnChunks(texto) {
+  const resultados = [];
 
   for (const archivo in documentosChunks) {
-    const listaChunks = documentosChunks[archivo];
-    if (!Array.isArray(listaChunks)) continue;
+    const chunks = documentosChunks[archivo];
+    if (!Array.isArray(chunks)) continue;
 
-    listaChunks.forEach((chunk, index) => {
-      if (typeof chunk !== "string") return;
-
-      if (chunk.toLowerCase().includes(mensajeUsuario.toLowerCase())) {
-        resultados.push({
-          archivo,
-          chunkIndex: index,
-          texto: chunk,
-        });
+    chunks.forEach((chunk, index) => {
+      if (
+        typeof chunk === "string" &&
+        chunk.toLowerCase().includes(texto.toLowerCase())
+      ) {
+        resultados.push({ archivo, index, texto: chunk });
       }
     });
   }
@@ -124,76 +135,70 @@ async function obtenerRespuestaIA(pregunta) {
         {
           role: "system",
           content:
-            "Eres un experto en aves y aviturismo de Caldas. Responde siempre en español de forma clara.",
+            "Eres un experto en aves y aviturismo de Caldas. Responde siempre en español de forma clara."
         },
-        { role: "user", content: pregunta },
+        { role: "user", content: pregunta }
       ],
       temperature: 0.2,
-      max_tokens: 200,
+      max_tokens: 200
     });
 
     return completion.choices[0].message.content;
   } catch (error) {
-    console.error("❌ Error IA:", error.message);
-    return "⚠️ No se pudo obtener respuesta de la IA.";
+    console.error("❌ Error Groq:", error.message);
+    return "⚠️ Error obteniendo respuesta de IA.";
   }
 }
 
 // =======================================
-// ENDPOINT PRINCIPAL DEL CHATBOT
+// ENDPOINT CHATBOT
 // =======================================
 app.post("/api/chatbot/chat", async (req, res) => {
   const { message } = req.body;
 
-  if (!message || message.trim() === "") {
-    return res.status(400).json({ reply: "⚠️ El mensaje está vacío." });
+  if (!message?.trim()) {
+    return res.status(400).json({ reply: "⚠️ Mensaje vacío." });
   }
 
   let reply = "";
 
-  // Buscar en documentación
   const encontrados = buscarEnChunks(message);
 
   if (encontrados.length > 0) {
     reply += "📄 Información encontrada en documentos:\n\n";
-    for (const e of encontrados) {
-      reply += `• ${e.archivo} (fragmento ${e.chunkIndex}):\n${e.texto}\n\n`;
-    }
+    encontrados.forEach((e) => {
+      reply += `• ${e.archivo} (fragmento ${e.index}):\n${e.texto}\n\n`;
+    });
   }
 
-  // IA
   if (CHATBOT_ENABLED) {
     const ia = await obtenerRespuestaIA(message);
-    reply = `🤖 Respuesta de la IA:\n${ia}\n\n${reply}`;
+    reply = `🤖 Respuesta IA:\n${ia}\n\n${reply}`;
   }
 
   if (!CHATBOT_ENABLED && encontrados.length === 0) {
     reply =
-      "⚠️ No encontré información en los documentos y la IA está desactivada.";
+      "⚠️ No encontré información y la IA está desactivada.";
   }
 
   res.json({ reply });
 });
 
 // =======================================
-// ACTIVAR / DESACTIVAR IA
+// TOGGLE IA
 // =======================================
 app.post("/api/chatbot/toggleIA", (req, res) => {
-  process.env.CHATBOT_ENABLED =
-    process.env.CHATBOT_ENABLED === "true" ? "false" : "true";
+  CHATBOT_ENABLED = !CHATBOT_ENABLED;
 
   res.json({
-    estado:
-      process.env.CHATBOT_ENABLED === "true"
-        ? "IA activada"
-        : "IA desactivada",
+    estado: CHATBOT_ENABLED ? "IA activada" : "IA desactivada"
   });
 });
 
 // =======================================
-// INICIAR SERVIDOR
+// INICIO SERVIDOR
 // =======================================
-app.listen(PORT, () => {
-  console.log(`🚀 Servidor corriendo en puerto ${PORT}`);
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`🚀 Backend activo en puerto ${PORT}`);
 });
 

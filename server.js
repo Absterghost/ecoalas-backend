@@ -9,7 +9,7 @@ import fs from "fs";
 import { fileURLToPath } from "url";
 import Groq from "groq-sdk";
 
-// Rutas de usuario
+// Rutas
 import userRoutes from "./fuentes/rutas/usuario.js";
 
 dotenv.config();
@@ -27,18 +27,20 @@ const CHATBOT_ENABLED = process.env.CHATBOT_ENABLED === "true";
 const PORT = process.env.PORT || 3000;
 
 // =======================================
-// CORS GLOBAL
+// CORS CONFIGURACIÓN DEFINITIVA (RENDER ✅)
 // =======================================
-app.use(
-  cors({
-    origin: [
-      "https://ecoalas-frontend.onrender.comp",
-      "http://localhost:5173",
-      "http://localhost:3000"
-    ],
-    methods: ["GET", "POST", "PUT", "DELETE"],
-  })
-);
+app.use(cors({
+  origin: [
+    "http://localhost:5173",
+    "https://ecoalas-frontend.onrender.com"
+  ],
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+  credentials: true
+}));
+
+// IMPORTANTE: habilitar preflight en todas las rutas
+app.options("*", cors());
 
 // =======================================
 // CONEXIÓN A MONGO
@@ -49,23 +51,22 @@ mongoose
   .catch((err) => console.error("❌ Error conectando a MongoDB:", err));
 
 // =======================================
-// RUTAS DE USUARIO
+// RUTAS
 // =======================================
 app.use("/api/usuarios", userRoutes);
 
 // =======================================
-// CHATBOT - SISTEMA COMPLETO UNIFICADO
+// CHATBOT CONFIG
 // =======================================
-
-// GROQ IA CONFIG
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
-const GROQ_MODEL = process.env.GROQ_MODEL;
+const GROQ_MODEL = process.env.GROQ_MODEL || "llama3-8b-8192";
 
-// CHUNKS
+// =======================================
+// CARGA DE DOCUMENTOS
+// =======================================
 const CHUNKS_DIR = path.join(__dirname, "documentos_chunks");
 let documentosChunks = {};
 
-// Cargar chunks en memoria
 if (fs.existsSync(CHUNKS_DIR)) {
   const archivos = fs
     .readdirSync(CHUNKS_DIR)
@@ -86,7 +87,9 @@ if (fs.existsSync(CHUNKS_DIR)) {
   console.log("⚠️ No existe la carpeta documentos_chunks.");
 }
 
-// Buscador de texto
+// =======================================
+// BUSCADOR DE TEXTO
+// =======================================
 function buscarEnChunks(mensajeUsuario) {
   let resultados = [];
 
@@ -110,7 +113,9 @@ function buscarEnChunks(mensajeUsuario) {
   return resultados;
 }
 
-// IA Groq
+// =======================================
+// FUNCIÓN IA
+// =======================================
 async function obtenerRespuestaIA(pregunta) {
   try {
     const completion = await groq.chat.completions.create({
@@ -135,7 +140,7 @@ async function obtenerRespuestaIA(pregunta) {
 }
 
 // =======================================
-// ENDPOINT PRINCIPAL: /api/chatbot/chat
+// ENDPOINT PRINCIPAL DEL CHATBOT
 // =======================================
 app.post("/api/chatbot/chat", async (req, res) => {
   const { message } = req.body;
@@ -150,21 +155,21 @@ app.post("/api/chatbot/chat", async (req, res) => {
   const encontrados = buscarEnChunks(message);
 
   if (encontrados.length > 0) {
-    reply += "📄 **Información encontrada en documentos:**\n\n";
+    reply += "📄 Información encontrada en documentos:\n\n";
     for (const e of encontrados) {
-      reply += `- **${e.archivo}** (fragmento ${e.chunkIndex}):\n${e.texto}\n\n`;
+      reply += `• ${e.archivo} (fragmento ${e.chunkIndex}):\n${e.texto}\n\n`;
     }
   }
 
-  // IA activada
+  // IA
   if (CHATBOT_ENABLED) {
     const ia = await obtenerRespuestaIA(message);
-    reply = `🤖 **Respuesta de la IA:**\n${ia}\n\n${reply}`;
+    reply = `🤖 Respuesta de la IA:\n${ia}\n\n${reply}`;
   }
 
-  // Nada encontrado + IA off
   if (!CHATBOT_ENABLED && encontrados.length === 0) {
-    reply = "⚠️ No encontré información en los documentos y la IA está desactivada.";
+    reply =
+      "⚠️ No encontré información en los documentos y la IA está desactivada.";
   }
 
   res.json({ reply });
@@ -189,5 +194,6 @@ app.post("/api/chatbot/toggleIA", (req, res) => {
 // INICIAR SERVIDOR
 // =======================================
 app.listen(PORT, () => {
-  console.log(`🚀 Servidor unificado corriendo en http://localhost:${PORT}`);
+  console.log(`🚀 Servidor corriendo en puerto ${PORT}`);
 });
+

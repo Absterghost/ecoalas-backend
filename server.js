@@ -32,7 +32,7 @@ const PORT = process.env.PORT || 3000;
 app.use(
   cors({
     origin: [
-      "https://aviturismo-manizales.netlify.app",
+      "https://ecoalas-frontend.onrender.comp",
       "http://localhost:5173",
       "http://localhost:3000"
     ],
